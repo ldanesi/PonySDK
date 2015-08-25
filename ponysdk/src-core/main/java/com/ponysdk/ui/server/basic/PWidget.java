@@ -57,7 +57,11 @@ import com.ponysdk.ui.server.basic.event.PDragStartEvent;
 import com.ponysdk.ui.server.basic.event.PDropEvent;
 import com.ponysdk.ui.server.basic.event.PFocusEvent;
 import com.ponysdk.ui.server.basic.event.PKeyPressEvent;
+import com.ponysdk.ui.server.basic.event.PKeyPressFilterHandler;
+import com.ponysdk.ui.server.basic.event.PKeyPressHandler;
 import com.ponysdk.ui.server.basic.event.PKeyUpEvent;
+import com.ponysdk.ui.server.basic.event.PKeyUpFilterHandler;
+import com.ponysdk.ui.server.basic.event.PKeyUpHandler;
 import com.ponysdk.ui.server.basic.event.PMouseDownEvent;
 import com.ponysdk.ui.server.basic.event.PMouseEvent;
 import com.ponysdk.ui.server.basic.event.PMouseOutEvent;
@@ -360,11 +364,43 @@ public abstract class PWidget extends PObject implements IsPWidget {
         return handlerRegistration;
     }
 
+    public HandlerRegistration addDomHandler(final PKeyPressFilterHandler handler) {
+        final Collection<PKeyPressHandler> handlerIterator = ensureDomHandler().getHandlers(PKeyPressEvent.TYPE, this);
+        final HandlerRegistration handlerRegistration = domHandler.addHandlerToSource(PKeyPressEvent.TYPE, this, handler);
+        if (handlerIterator.isEmpty()) {
+
+            final Parser parser = Txn.get().getTxnContext().getParser();
+            parser.beginObject();
+            parser.parse(Model.TYPE_ADD_HANDLER);
+            parser.parse(Model.HANDLER_DOM_HANDLER);
+            parser.parse(Model.DOM_HANDLER_CODE, PKeyPressEvent.TYPE.getDomHandlerType().ordinal());
+            parser.parse(Model.OBJECT_ID, ID);
+            parser.parse(handler.asJsonObject());
+            parser.endObject();
+        }
+        return handlerRegistration;
+    }
+
+    public HandlerRegistration addDomHandler(final PKeyUpFilterHandler handler) {
+        final Collection<PKeyUpHandler> handlerIterator = ensureDomHandler().getHandlers(PKeyUpEvent.TYPE, this);
+        final HandlerRegistration handlerRegistration = domHandler.addHandlerToSource(PKeyUpEvent.TYPE, this, handler);
+        if (handlerIterator.isEmpty()) {
+            final Parser parser = Txn.get().getTxnContext().getParser();
+            parser.beginObject();
+            parser.parse(Model.TYPE_ADD_HANDLER);
+            parser.parse(Model.HANDLER_DOM_HANDLER);
+            parser.parse(Model.DOM_HANDLER_CODE, PKeyUpEvent.TYPE.getDomHandlerType().ordinal());
+            parser.parse(Model.OBJECT_ID, ID);
+            parser.parse(handler.asJsonObject());
+            parser.endObject();
+        }
+        return handlerRegistration;
+    }
+
     public <H extends EventHandler> HandlerRegistration addDomHandler(final H handler, final PDomEvent.Type<H> type) {
         final Collection<H> handlerIterator = ensureDomHandler().getHandlers(type, this);
         final HandlerRegistration handlerRegistration = domHandler.addHandlerToSource(type, this, handler);
         if (handlerIterator.isEmpty()) {
-
             final Parser parser = Txn.get().getTxnContext().getParser();
             parser.beginObject();
             parser.parse(Model.TYPE_ADD_HANDLER);
@@ -372,15 +408,6 @@ public abstract class PWidget extends PObject implements IsPWidget {
             parser.parse(Model.DOM_HANDLER_CODE, type.getDomHandlerType().ordinal());
             parser.parse(Model.OBJECT_ID, ID);
             parser.endObject();
-
-            // TODO nicolas check ???????
-            // if (handler instanceof JsonObject) {
-            // final JsonObject jso = (JsonObject) handler;
-            // for (final Iterator<String> iterator = jso.keys(); iterator.hasNext();) {
-            // final String key = iterator.next();
-            // addHandler.put(key, jso.get(key));
-            // }
-            // }
         }
         return handlerRegistration;
     }

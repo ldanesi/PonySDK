@@ -32,6 +32,7 @@ import org.timepedia.exporter.client.ExportConstructor;
 import org.timepedia.exporter.client.ExportPackage;
 import org.timepedia.exporter.client.Exportable;
 
+import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JavaScriptObject;
 import com.google.gwt.json.client.JSONArray;
 import com.google.gwt.json.client.JSONObject;
@@ -46,6 +47,8 @@ import com.ponysdk.ui.terminal.request.HttpRequestBuilder;
 import com.ponysdk.ui.terminal.request.ParentWindowRequest;
 import com.ponysdk.ui.terminal.request.RequestBuilder;
 import com.ponysdk.ui.terminal.request.RequestCallback;
+import com.ponysdk.ui.terminal.socket.WebSocketCallback;
+import com.ponysdk.ui.terminal.socket.WebSocketClient;
 
 @ExportPackage(value = "")
 @Export(value = "ponysdk", all = false)
@@ -65,17 +68,16 @@ public class PonySDK implements Exportable {
     public static PonySDK constructor() {
         if (INSTANCE == null) {
             INSTANCE = new PonySDK();
-            log("Creating ponysdk instance");
+            log.info("Creating PonySDK instance");
         }
         return INSTANCE;
     }
 
     @Export
     public void start() {
-        log("starting...");
+        log.info("Starting PonySDK instance");
 
         try {
-
             Long viewID = null;
             final Storage storage = Storage.getSessionStorageIfSupported();
             if (storage != null) {
@@ -105,35 +107,73 @@ public class PonySDK implements Exportable {
 
             if (viewID != null) requestData.put(Model.APPLICATION_VIEW_ID, viewID);
 
-            final RequestCallback requestCallback = new RequestCallback() {
+            final StringBuilder builder = new StringBuilder();
+            builder.append(GWT.getHostPageBaseURL().replaceFirst("http", "ws"));
+            builder.append("ws?");
+            builder.append(Model.APPLICATION_VIEW_ID.getKey() + "=" + UIBuilder.sessionID);
+            builder.append("&");
+            builder.append(Model.APPLICATION_START.getKey());
+            builder.append("&");
+            builder.append(Model.APPLICATION_SEQ_NUM.getKey() + "=" + 0);
+            builder.append("&");
+            builder.append(Model.HISTORY_TOKEN.getKey() + "=" + History.getToken());
+            // builder.append( requestData.put(Model.COOKIES, cookies);
+
+            final WebSocketClient socketClient = new WebSocketClient(new WebSocketCallback() {
 
                 @Override
-                public void onDataReceived(final JSONObject data) {
-                    try {
-                        if (data.containsKey(Model.APPLICATION_VIEW_ID.getKey())) {
-                            applicationViewID = (long) data.get(Model.APPLICATION_VIEW_ID.getKey()).isNumber().doubleValue();
-
-                            if (storage != null) storage.setItem(Model.APPLICATION_VIEW_ID.getKey(), Long.toString(applicationViewID));
-
-                            uiBuilder.init(applicationViewID, requestBuilder);
-                        }
-
-                        uiBuilder.update(data);
-
-                    } catch (final RuntimeException exception) {
-                        log.log(Level.SEVERE, "Failed to process data with error #" + exception.getMessage() + ", data: " + data, exception);
-                    }
+                public void connected() {
+                    Window.alert("WebSoket connected");
                 }
 
                 @Override
-                public void onError(final Throwable exception) {
-                    uiBuilder.onCommunicationError(exception);
+                public void disconnected() {
+                    Window.alert("WebSoket disconnected");
                 }
 
-            };
+                @Override
+                public void message(final String message) {
+                    Window.alert(message);
+                }
 
-            requestBuilder = newRequestBuilder(requestCallback);
-            requestBuilder.send(requestData.toString());
+            });
+
+            Window.alert("Connect to " + builder.toString());
+
+            socketClient.connect(builder.toString());
+
+            // final RequestCallback requestCallback = new RequestCallback() {
+            //
+            // @Override
+            // public void onDataReceived(final JSONObject data) {
+            // try {
+            // if (data.containsKey(Model.APPLICATION_VIEW_ID.getKey())) {
+            // applicationViewID = (long)
+            // data.get(Model.APPLICATION_VIEW_ID.getKey()).isNumber().doubleValue();
+            //
+            // if (storage != null) storage.setItem(Model.APPLICATION_VIEW_ID.getKey(),
+            // Long.toString(applicationViewID));
+            //
+            // uiBuilder.init(applicationViewID, requestBuilder);
+            // }
+            //
+            // uiBuilder.update(data);
+            //
+            // } catch (final RuntimeException exception) {
+            // log.log(Level.SEVERE, "Failed to process data with error #" + exception.getMessage() + ", data:
+            // " + data, exception);
+            // }
+            // }
+            //
+            // @Override
+            // public void onError(final Throwable exception) {
+            // uiBuilder.onCommunicationError(exception);
+            // }
+            //
+            // };
+            //
+            // requestBuilder = newRequestBuilder(requestCallback);
+            // requestBuilder.send(requestData.toString());
 
         } catch (final Exception e) {
             log.log(Level.SEVERE, "Loading application has failed #" + e.getMessage(), e);
@@ -173,5 +213,4 @@ public class PonySDK implements Exportable {
 
     public static native void reload() /*-{$wnd.location.reload();}-*/;
 
-    public static native void log(String msg) /*-{ if($wnd.console) $wnd.console.log(msg);}-*/;
 }

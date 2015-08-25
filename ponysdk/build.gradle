@@ -87,6 +87,7 @@ dependencies {
     gwt 'com.google.gwt:gwt-codeserver:2.7.0'
     gwt 'javax.validation:validation-api:1.0.0.GA@jar'
     gwt 'org.timepedia.exporter:gwtexporter:2.5.1'
+    //gwt 'com.google.gwt:gwt-elemental:2.7.0'
     spring 'org.springframework:spring-core:3.2.3.RELEASE'
     spring 'org.springframework:spring-web:3.2.3.RELEASE'
     sl4j 'org.slf4j:slf4j-api:1.6.2'
@@ -111,7 +112,7 @@ dependencies {
     asm 'org.ow2.asm:asm:5.0.3'
     
     json 'javax.json:javax.json-api:1.0'
-
+    json 'org.glassfish:javax.json:1.0.4'
 }
 
 

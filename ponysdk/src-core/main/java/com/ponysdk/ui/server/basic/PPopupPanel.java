@@ -113,6 +113,10 @@ public class PPopupPanel extends PSimplePanel implements HasPAnimation {
         root.adopt(this);
     }
 
+    public PPopupPanel() {
+        this(false, null);
+    }
+
     public PPopupPanel(final boolean autoHide) {
         this(autoHide, null);
     }

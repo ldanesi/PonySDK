@@ -46,7 +46,6 @@ import com.ponysdk.core.event.HandlerRegistration;
 import com.ponysdk.core.event.StreamHandler;
 import com.ponysdk.core.security.Permission;
 import com.ponysdk.core.servlet.CommunicationSanityChecker;
-import com.ponysdk.core.servlet.Session;
 import com.ponysdk.core.stm.Txn;
 import com.ponysdk.ui.server.basic.PCookies;
 import com.ponysdk.ui.server.basic.PHistory;
@@ -189,9 +188,9 @@ public class UIContext {
         return (T) weakReferences.get(objectID);
     }
 
-    public Session getSession() {
-        return application.getSession();
-    }
+    // public Session getSession() {
+    // return application.getSession();
+    // }
 
     public StreamHandler removeStreamListener(final Long streamID) {
         return streamListenerByID.remove(streamID);
@@ -412,7 +411,8 @@ public class UIContext {
     }
 
     public void destroy() {
-        log.info("Destroying UIContext ViewID #{} from the Session #{}", uiContextID, application.getSession().getId());
+        // log.info("Destroying UIContext ViewID #{} from the Session #{}", uiContextID,
+        // application.getSession().getId());
         communicationSanityChecker.stop();
         application.unregisterUIContext(uiContextID);
 
@@ -420,7 +420,8 @@ public class UIContext {
             listener.onUIContextDestroyed(this);
         }
 
-        log.info("UIContext destroyed ViewID #{} from the Session #{}", uiContextID, application.getSession().getId());
+        // log.info("UIContext destroyed ViewID #{} from the Session #{}", uiContextID,
+        // application.getSession().getId());
     }
 
     public void addUIContextListener(final UIContextListener listener) {

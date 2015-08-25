@@ -23,6 +23,8 @@
 
 package com.ponysdk.sample.client;
 
+import javax.json.JsonObject;
+
 import com.ponysdk.core.ClientDataOutput;
 import com.ponysdk.core.UIContext;
 import com.ponysdk.core.main.EntryPoint;
@@ -44,7 +46,7 @@ public class UISampleEntryPoint extends SpringEntryPoint implements EntryPoint, 
         uiContext.setClientDataOutput(new ClientDataOutput() {
 
             @Override
-            public void onClientData(final PObject object, final JSONObject instruction) {
+            public void onClientData(final PObject object, final JsonObject instruction) {
                 System.err.println(object + "" + instruction);
             }
         });
@@ -76,7 +78,6 @@ public class UISampleEntryPoint extends SpringEntryPoint implements EntryPoint, 
 
     @Override
     public void onOpen() {
-        // PScript.get().execute("less.watch();");
         start(new LoginPlace());
     }
 

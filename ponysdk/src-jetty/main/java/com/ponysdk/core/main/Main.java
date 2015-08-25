@@ -29,8 +29,6 @@ import java.util.EnumSet;
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
-import javax.servlet.ServletContextListener;
-import javax.servlet.http.HttpSessionListener;
 
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
@@ -43,12 +41,14 @@ import org.eclipse.jetty.webapp.WebAppContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.ponysdk.core.ApplicationManagerOption;
+import com.ponysdk.core.servlet.AbstractApplicationLoader;
 import com.ponysdk.core.servlet.BootstrapServlet;
+import com.ponysdk.core.servlet.PonySDKHttpServlet;
 import com.ponysdk.core.servlet.ServletContextFilter;
 import com.ponysdk.core.servlet.StreamServiceServlet;
 import com.ponysdk.core.servlet.WebSocketServlet;
-import com.ponysdk.spring.service.SpringApplicationLoader;
-import com.ponysdk.spring.servlet.SpringHttpServlet;
+import com.ponysdk.spring.servlet.SpringApplicationLoader;
 
 public class Main {
 
@@ -69,10 +69,8 @@ public class Main {
     private String applicationName;
     private String applicationDescription;
 
-    private Servlet httpServlet;
+    private AbstractApplicationLoader applicationLoader;
     private Servlet bootstrapServlet;
-    private ServletContextListener servletContextListener;
-    private HttpSessionListener httpSessionListener;
     private Filter servletConextFilter;
     private Handler handler;
 
@@ -119,37 +117,40 @@ public class Main {
     }
 
     protected ServletContextHandler newServletContext() {
-
         // set default value
-        if (httpServlet == null) httpServlet = new SpringHttpServlet();
-        if (bootstrapServlet == null) bootstrapServlet = new BootstrapServlet();
-        if (httpSessionListener == null && servletContextListener == null) {
-            final SpringApplicationLoader applicationLoader = new SpringApplicationLoader();
+        if (bootstrapServlet == null) {
+            bootstrapServlet = new BootstrapServlet();
+        }
+
+        final ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+
+        if (applicationLoader == null) {
+            applicationLoader = new SpringApplicationLoader(new ApplicationManagerOption());
             applicationLoader.setApplicationID(applicationID);
             applicationLoader.setApplicationName(applicationName);
             applicationLoader.setApplicationDescription(applicationDescription);
-            httpSessionListener = applicationLoader;
-            servletContextListener = applicationLoader;
         }
 
-        if (servletConextFilter == null) servletConextFilter = new ServletContextFilter();
+        if (servletConextFilter == null) {
+            servletConextFilter = new ServletContextFilter();
+        }
 
-        final ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/" + applicationContextName);
+
+        context.addServlet(new ServletHolder(new PonySDKHttpServlet()), MAPPING_TERMINAL);
+        context.addServlet(new ServletHolder(bootstrapServlet), MAPPING_BOOTSTRAP);
         context.addServlet(new ServletHolder(new StreamServiceServlet()), MAPPING_STREAM);
         context.addServlet(new ServletHolder(new WebSocketServlet()), MAPPING_WS);
-        context.addServlet(new ServletHolder(bootstrapServlet), MAPPING_BOOTSTRAP);
-        context.addServlet(new ServletHolder(httpServlet), MAPPING_TERMINAL);
-
-        context.getSessionHandler().getSessionManager().setMaxInactiveInterval(60 * sessionTimeout);
 
         context.addFilter(new FilterHolder(servletConextFilter), MAPPING_BOOTSTRAP, EnumSet.of(DispatcherType.REQUEST));
 
         final FilterHolder filterHolder = new FilterHolder(GzipFilter.class);
         context.addFilter(filterHolder, "/*", EnumSet.allOf(DispatcherType.class));
 
-        context.addEventListener(servletContextListener);
-        context.getSessionHandler().addEventListener(httpSessionListener);
+        context.addEventListener(applicationLoader);
+
+        context.getSessionHandler().getSessionManager().setMaxInactiveInterval(60 * sessionTimeout);
+        context.getSessionHandler().addEventListener(applicationLoader);
 
         return context;
     }
@@ -192,18 +193,6 @@ public class Main {
         this.war = war;
     }
 
-    public void setHttpServlet(final Servlet httpServlet) {
-        this.httpServlet = httpServlet;
-    }
-
-    public void setServletContextListener(final ServletContextListener servletContextListener) {
-        this.servletContextListener = servletContextListener;
-    }
-
-    public void setHttpSessionListener(final HttpSessionListener httpSessionListener) {
-        this.httpSessionListener = httpSessionListener;
-    }
-
     public void setBootstrapServlet(final Servlet bootstrapServlet) {
         this.bootstrapServlet = bootstrapServlet;
     }
@@ -222,6 +211,10 @@ public class Main {
 
     private void setApplicationDescription(final String applicationDescription) {
         this.applicationDescription = applicationDescription;
+    }
+
+    public void setApplicationLoader(final AbstractApplicationLoader applicationLoader) {
+        this.applicationLoader = applicationLoader;
     }
 
 }

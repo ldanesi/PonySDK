@@ -1,11 +1,12 @@
 
 package com.ponysdk.core.servlet;
 
-import java.io.IOException;
+import java.net.HttpCookie;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
 
 import org.eclipse.jetty.websocket.api.Session;
@@ -17,10 +18,10 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ponysdk.core.Application;
+import com.ponysdk.core.AbstractApplicationManager;
 import com.ponysdk.core.UIContext;
 import com.ponysdk.core.socket.ConnectionListener;
-import com.ponysdk.ui.server.basic.PPusher;
+import com.ponysdk.core.stm.TxnSocketContext;
 import com.ponysdk.ui.terminal.model.Model;
 
 public class WebSocketServlet extends org.eclipse.jetty.websocket.servlet.WebSocketServlet {
@@ -30,6 +31,14 @@ public class WebSocketServlet extends org.eclipse.jetty.websocket.servlet.WebSoc
     private static final long serialVersionUID = 1L;
 
     public int maxIdleTime = 1000;
+
+    private AbstractApplicationManager applicationManager;
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        applicationManager = (AbstractApplicationManager) getServletContext().getAttribute(AbstractApplicationManager.class.getCanonicalName());
+    }
 
     @Override
     public void configure(final WebSocketServletFactory factory) {
@@ -47,22 +56,32 @@ public class WebSocketServlet extends org.eclipse.jetty.websocket.servlet.WebSoc
 
     public class JettyWebSocket implements WebSocketListener, com.ponysdk.core.socket.WebSocket {
 
-        private Session session;
-
         private final long key;
-
-        private final HttpSession httpSession;
 
         private UIContext uiContext;
 
         private ConnectionListener listener;
 
+        private TxnSocketContext context;
+
         private final ByteBuffer buffer = ByteBuffer.allocateDirect(1000000);
+
+        private final HttpSession httpSession;
+
+        private Session session;
 
         public JettyWebSocket(final ServletUpgradeRequest req, final ServletUpgradeResponse resp) {
             final Map<String, List<String>> parameterMap = req.getParameterMap();
-            this.key = Long.parseLong(parameterMap.get(Model.APPLICATION_VIEW_ID.getKey()).get(0));
-            this.httpSession = req.getSession();
+            key = Long.parseLong(parameterMap.get(Model.APPLICATION_VIEW_ID.getKey()).get(0));
+
+            final List<HttpCookie> cookies = req.getCookies();
+            // for (final HttpCookie httpCookie : cookies) {
+            // if (httpCookie.getName().equals("JSESSIONID")) {
+            // sessionID = httpCookie.getValue();
+            // }
+            // }
+
+            httpSession = HTTPServletContext.get().getRequest().getSession();
         }
 
         @Override
@@ -98,25 +117,18 @@ public class WebSocketServlet extends org.eclipse.jetty.websocket.servlet.WebSoc
         public void onWebSocketConnect(final Session session) {
             this.session = session;
 
-            final Application applicationSession = (Application) httpSession.getAttribute(Application.class.getCanonicalName());
-            if (applicationSession == null) throw new RuntimeException("Invalid session, please reload your application");
+            context = new TxnSocketContext();
 
-            uiContext = applicationSession.getUIContext(key);
-            uiContext.acquire();
+            context.setSocket(this);
+
             try {
-                UIContext.setCurrent(uiContext);
-
                 session.getRemote().sendBytes(buffer);
-
-                PPusher.get().initialize(this);
-            } catch (final IOException e) {
-                log.error("Cannot initializing Web Socket", e);
-            } finally {
-                UIContext.remove();
-                uiContext.release();
+                applicationManager.process(context);
+            } catch (final Exception e) {
+                log.error("Cannot process WebSocket instructions", e);
             }
 
-            listener.onOpen();
+            // listener.onOpen();
         }
 
         @Override
